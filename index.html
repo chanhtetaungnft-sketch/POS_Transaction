@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>POS Transaction Monitoring</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body {
+    font-family: 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg,#f5f7fa,#e4ecf7);
+    padding: 30px;
+}
+
+/* Title */
+h1 {
+    text-align: center;
+    font-size: 34px;
+}
+
+/* Search */
+#searchBox {
+    display: block;
+    margin: 20px auto;
+    padding: 15px;
+    width: 420px;
+    border-radius: 20px;
+    border: none;
+    font-size: 16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+
+/* Suggestion */
+#suggestionBox {
+    width: 420px;
+    margin: auto;
+    background: white;
+    border-radius: 10px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.suggestion {
+    padding: 10px;
+    cursor: pointer;
+}
+.suggestion:hover {
+    background: #eee;
+}
+
+/* Card */
+.card {
+    background: rgba(255,255,255,0.6);
+    backdrop-filter: blur(15px);
+    border-radius: 20px;
+    padding: 20px;
+    margin-top: 20px;
+}
+
+/* KPI */
+.kpi-container {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.kpi {
+    flex: 1;
+    text-align: center;
+    padding: 15px;
+    border-radius: 15px;
+    background: rgba(255,255,255,0.5);
+}
+
+/* Table */
+table {
+    width: 100%;
+}
+td, th {
+    padding: 8px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>POS Transaction Monitoring</h1>
+
+<input type="text" id="searchBox" placeholder="🔍 Search HQ ID / Terminal ID / Store Name">
+<div id="suggestionBox"></div>
+
+<div id="result"></div>
+<canvas id="chart" height="100"></canvas>
+
+<script>
+let sheetData = [];
+let chart;
+
+const API_URL = "https://script.google.com/macros/library/d/1q_BR63blQaxgFoElEXYrRzy0XlGykbZBDwoAtFFXPTFXut6VlcqfcgRM/9";
+
+// load data
+fetch(API_URL)
+.then(res => res.json())
+.then(data => sheetData = data);
+
+// format
+function formatNumber(num){
+    return Number(num || 0).toLocaleString();
+}
+
+// search
+const searchBox = document.getElementById("searchBox");
+const suggestionBox = document.getElementById("suggestionBox");
+
+searchBox.addEventListener("keyup", function(){
+    const keyword = this.value.toLowerCase();
+    suggestionBox.innerHTML = "";
+
+    if(keyword.length < 1) return;
+
+    let filtered = sheetData.filter(item =>
+        (item["HQ ID"]||"").toLowerCase().includes(keyword) ||
+        (item["Terminal ID"]||"").toLowerCase().includes(keyword) ||
+        (item["Store Name"]||"").toLowerCase().includes(keyword)
+    );
+
+    filtered.slice(0,10).forEach(item=>{
+        let div = document.createElement("div");
+        div.className = "suggestion";
+        div.innerText = `${item["Store Name"]} (${item["HQ ID"]})`;
+
+        div.onclick = ()=>{
+            showResult(item);
+            suggestionBox.innerHTML="";
+        };
+
+        suggestionBox.appendChild(div);
+    });
+});
+
+// show result
+function showResult(item){
+
+let html = `
+<div class="card">
+<h2>${item["Store Name"]}</h2>
+<p>HQ ID: ${item["HQ ID"]}</p>
+<p>Terminal ID: ${item["Terminal ID"]}</p>
+
+<table>
+<tr><th>Month</th><th>Count</th><th>Volume</th></tr>
+
+<tr><td>Jan</td><td>${formatNumber(item["Jan Count"])}</td><td>${formatNumber(item["Jan Volume"])}</td></tr>
+<tr><td>Feb</td><td>${formatNumber(item["Feb Count"])}</td><td>${formatNumber(item["Feb Volume"])}</td></tr>
+<tr><td>March</td><td>${formatNumber(item["March Count"])}</td><td>${formatNumber(item["March Volume"])}</td></tr>
+
+</table>
+</div>`;
+
+document.getElementById("result").innerHTML = html;
+
+// chart
+let ctx = document.getElementById("chart").getContext("2d");
+
+if(chart) chart.destroy();
+
+chart = new Chart(ctx,{
+    type:'bar',
+    data:{
+        labels:["Jan","Feb","March"],
+        datasets:[{
+            label:"Volume",
+            data:[
+                item["Jan Volume"]||0,
+                item["Feb Volume"]||0,
+                item["March Volume"]||0
+            ]
+        }]
+    }
+});
+}
+</script>
+
+</body>
+</html>
